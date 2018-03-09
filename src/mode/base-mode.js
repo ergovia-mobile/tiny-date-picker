@@ -16,6 +16,7 @@ var views = {
 
 export default function BaseMode(input, emit, opts) {
   var detatchInputEvents; // A function that detaches all events from the input
+  var attachedInputEvents; // An object that contains all attached events on the input
   var closing = false; // A hack to prevent calendar from re-opening when closing.
   var selectedDate; // The currently selected date
   var dp = {
@@ -112,6 +113,13 @@ export default function BaseMode(input, emit, opts) {
       detatchInputEvents();
     },
 
+    detachInputEvent: function (event) {
+      var attachedEvent = attachedInputEvents[event];
+      if (attachedEvent) {
+        attachedEvent();
+      }
+    },
+
     render: function () {
       if (!dp.el) {
         return;
@@ -140,7 +148,14 @@ export default function BaseMode(input, emit, opts) {
     },
   };
 
-  detatchInputEvents = attachInputEvents(input, dp);
+  attachedInputEvents = attachInputEvents(input, dp);
+
+  detatchInputEvents = function() {
+    Object.keys(attachedInputEvents).forEach(function (f) {
+        f();
+    });
+  };
+
 
   // Builds the initial view state
   // selectedDate is a special case and causes changes to hilightedDate
@@ -192,35 +207,31 @@ function attachInputEvents(input, dp) {
     }
   });
 
-  var off = [
-    on('blur', input, bufferFn(5, function () {
-      if (!dp.hasFocus()) {
-        dp.close(true);
-      }
+  var off = {
+    blur: on('blur', input, bufferFn(5, function () {
+        if (!dp.hasFocus()) {
+            dp.close(true);
+        }
     })),
 
-    on('mousedown', input, function () {
-      if (input === document.activeElement) {
-        bufferShow();
-      }
+    mousedown: on('mousedown', input, function () {
+          if (input === document.activeElement) {
+              bufferShow();
+          }
+      }),
+
+    focus: on('focus', input, bufferShow),
+
+    input: on('input', input, function (e) {
+        var date = dp.opts.parse(e.target.value);
+        isNaN(date) || dp.setState({
+            hilightedDate: date
+        });
     }),
 
-    on('focus', input, bufferShow),
-
-    on('input', input, function (e) {
-      var date = dp.opts.parse(e.target.value);
-      isNaN(date) || dp.setState({
-        hilightedDate: date
-      });
-    }),
-  ];
-
-  // Unregister all events that were registered above.
-  return function() {
-    off.forEach(function (f) {
-      f();
-    });
   };
+
+  return off;
 }
 
 function focusCurrent(dp) {
@@ -238,18 +249,6 @@ function attachContainerEvents(dp) {
       handler && handler(e, dp);
     });
   }
-
-  // The calender fires a blur event *every* time we redraw
-  // this means we need to buffer the blur event to see if
-  // it still has no focus after redrawing, and only then
-  // do we return focus to the input. A possible other approach
-  // would be to set context.redrawing = true on redraw and
-  // set it to false in the blur event.
-  on('blur', calEl, bufferFn(10, function () {
-    if (!calEl.contains(document.activeElement)) {
-      dp.close(true);
-    }
-  }));
 
   on('keydown', el, function (e) {
     if (e.keyCode === Key.enter) {

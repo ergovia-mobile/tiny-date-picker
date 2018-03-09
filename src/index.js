@@ -74,6 +74,7 @@ export default function TinyDatePicker(input, opts) {
     open: mode.open,
     close: mode.close,
     destroy: mode.destroy,
+    detachInputEvent: mode.detachInputEvent
   };
 
   function emit(evt) {
