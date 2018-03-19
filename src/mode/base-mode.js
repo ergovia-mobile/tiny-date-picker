@@ -152,7 +152,7 @@ export default function BaseMode(input, emit, opts) {
 
   detatchInputEvents = function() {
     Object.keys(attachedInputEvents).forEach(function (f) {
-        f();
+      attachedInputEvents[f]();
     });
   };
 
